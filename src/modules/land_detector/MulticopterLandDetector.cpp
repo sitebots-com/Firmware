@@ -156,7 +156,7 @@ bool MulticopterLandDetector::_get_ground_contact_state()
 		return true;
 	}
 
-	// if already landed and that the drone has low thrust, it has to be on the ground
+	// if it was already landed and didn't get out of low thrust, it has to be still on the ground
 	if (_state == LandDetectionState::LANDED && _has_low_thrust()) {
 		return true;
 	}
