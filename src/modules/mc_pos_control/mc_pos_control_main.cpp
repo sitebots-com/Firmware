@@ -123,6 +123,7 @@ private:
 	int		_traj_wp_avoidance_sub{-1};	/**< trajectory waypoint */
 
 	int _task_failure_count{0};         /**< counter for task failures */
+	uint64_t	_avoidance_system_lost{0}; /**time at which avoidance system is lost */
 
 	float _takeoff_speed = -1.f; /**< For flighttask interface used only. It can be thrust or velocity setpoints */
 	float _takeoff_reference_z; /**< Z-position when takeoff was initiated */
@@ -1216,13 +1217,23 @@ MulticopterPositionControl::use_obstacle_avoidance()
 		const bool avoidance_point_valid = _traj_wp_avoidance.waypoints[vehicle_trajectory_waypoint_s::POINT_0].point_valid == true;
 		const bool in_mission = _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION;
 		const bool in_rtl = _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_RTL;
+		const bool in_loiter = _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER;
 
 		// switch to hold mode to stop when we loose external avoidance data during a mission
 		if (avoidance_data_timeout && in_mission) {
 			send_vehicle_cmd_do(vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER);
+			if(_avoidance_system_lost == false){
+				_avoidance_system_lost = hrt_absolute_time();
+			}
+		}
+
+		// if the avoidance system does not recover go to RTL
+		if (_avoidance_system_lost && hrt_elapsed_time(&_avoidance_system_lost) > 30_s && in_loiter){
+			send_vehicle_cmd_do(vehicle_status_s::NAVIGATION_STATE_AUTO_RTL);
 		}
 
 		if ((in_mission || in_rtl) && !avoidance_data_timeout && avoidance_point_valid) {
+			_avoidance_system_lost = false;
 			return true;
 		}
 	}
