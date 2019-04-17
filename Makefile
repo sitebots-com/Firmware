@@ -337,13 +337,10 @@ format:
 
 # Testing
 # --------------------------------------------------------------------
-.PHONY: tests tests_coverage tests_mission tests_mission_coverage tests_offboard
-.PHONY: rostest python_coverage test_mixer_multirotor
+.PHONY: tests tests_coverage tests_mission tests_mission_coverage tests_offboard tests_avoidance
+.PHONY: rostest python_coverage
 
-test_mixer_multirotor:
-	@$(MAKE) -C "$(SRC_DIR)"/src/lib/mixer --no-print-directory tests
-
-tests: test_mixer_multirotor
+tests:
 	@$(MAKE) --no-print-directory px4_sitl_test test_results \
 	ASAN_OPTIONS="color=always:check_initialization_order=1:detect_stack_use_after_return=1" \
 	UBSAN_OPTIONS="color=always"
@@ -374,6 +371,9 @@ tests_offboard: rostest
 	@"$(SRC_DIR)"/test/rostest_px4_run.sh mavros_posix_tests_offboard_attctl.test
 	@"$(SRC_DIR)"/test/rostest_px4_run.sh mavros_posix_tests_offboard_posctl.test
 
+tests_avoidance: rostest
+	@"$(SRC_DIR)"/test/rostest_avoidance_run.sh mavros_posix_test_avoidance.test
+
 python_coverage:
 	@mkdir -p "$(SRC_DIR)"/build/python_coverage
 	@cd "$(SRC_DIR)"/build/python_coverage && cmake "$(SRC_DIR)" $(CMAKE_ARGS) -G"$(PX4_CMAKE_GENERATOR)" -DCONFIG=px4_sitl_default -DPYTHON_COVERAGE=ON
@@ -383,6 +383,7 @@ python_coverage:
 	#@$(PX4_MAKE) -C "$(SRC_DIR)"/build/python_coverage module_documentation # TODO: fix within coverage.py
 	@coverage combine `find . -name .coverage\*`
 	@coverage report -m
+
 
 # static analyzers (scan-build, clang-tidy, cppcheck)
 # --------------------------------------------------------------------
