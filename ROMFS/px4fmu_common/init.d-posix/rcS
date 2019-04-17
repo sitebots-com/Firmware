@@ -110,6 +110,7 @@ then
 	param set COM_OBL_RC_ACT 0
 	param set COM_OF_LOSS_T 5
 	param set COM_RC_IN_MODE 1
+	param set COM_ARM_EKF_AB 0.01
 
 	param set EKF2_AID_MASK 1
 	param set EKF2_ANGERR_INIT 0.01
@@ -140,7 +141,8 @@ then
 	param set MPC_ACC_HOR_MAX 3
 
 	param set NAV_ACC_RAD 2
-	param set NAV_DLL_ACT 2
+	param set NAV_DLL_ACT 0
+	param set NAV_RCL_ACT 0
 
 	param set RTL_DESCEND_ALT 5
 	param set RTL_LAND_DELAY 5
