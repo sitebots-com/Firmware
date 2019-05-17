@@ -10,7 +10,8 @@ export HEADLESS=1
 # export PX4_SIM_MODEL="iris_fpv_cam"
 export PX4_SIM_MODEL="typhoon_h480"
 source "./Tools/setup_gazebo.bash" . ./build/px4_sitl_default
-gzserver --verbose "./Tools/sitl_gazebo/worlds/${PX4_SIM_MODEL}.world" &
+# gzserver --verbose "./Tools/sitl_gazebo/worlds/${PX4_SIM_MODEL}.world" &
+# roslaunch gazebo_ros empty_world.launch world_name:="./Tools/sitl_gazebo/worlds/${PX4_SIM_MODEL}.world" &
 
 set +e
 export rootfs="./build/px4_sitl_default/tmp/rootfs"
