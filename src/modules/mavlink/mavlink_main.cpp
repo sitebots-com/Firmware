@@ -162,26 +162,6 @@ bool Mavlink::_boot_complete = false;
 
 Mavlink::Mavlink() :
 	ModuleParams(nullptr),
-	_task_should_exit(false),
-	_mavlink_log_pub(nullptr),
-	_main_loop_delay(1000),
-	_mavlink_shell(nullptr),
-	_mavlink_ulog(nullptr),
-	_mavlink_ulog_stop_requested(false),
-	_logbuffer(5, sizeof(mavlink_log_s)),
-	_receive_thread{},
-	_forwarding_on(false),
-	_ftp_on(false),
-	_uart_fd(-1),
-	_baudrate(57600),
-	_datarate(1000),
-	_rate_mult(1.0f),
-	_mavlink_param_queue_index(0),
-	mavlink_link_termination_allowed(false),
-	_subscribe_to_stream(nullptr),
-	_subscribe_to_stream_rate(0.0f),
-	_udp_initialised(false),
-	_flow_control_mode(Mavlink::FLOW_CONTROL_OFF),
 	_last_write_success_time(0),
 	_last_write_try_time(0),
 	_mavlink_start_time(0),
@@ -633,35 +613,26 @@ Mavlink::mavlink_open_uart(int baud, const char *uart_name, bool force_flow_cont
 	/* if this is a config link, stay here and wait for it to open */
 	if (_uart_fd < 0 && _mode == MAVLINK_MODE_CONFIG) {
 
-		int armed_sub = orb_subscribe(ORB_ID(actuator_armed));
-		struct actuator_armed_s armed;
+		uORB::SubscriptionData<actuator_armed_s> armed_sub{ORB_ID(actuator_armed)};
 
 		/* get the system arming state and abort on arming */
 		while (_uart_fd < 0) {
 
 			/* abort if an arming topic is published and system is armed */
-			bool updated = false;
-			orb_check(armed_sub, &updated);
+			armed_sub.update();
 
-			if (updated) {
-				/* the system is now providing arming status feedback.
-				 * instead of timing out, we resort to abort bringing
-				 * up the terminal.
-				 */
-				orb_copy(ORB_ID(actuator_armed), armed_sub, &armed);
-
-				if (armed.armed) {
-					/* this is not an error, but we are done */
-					orb_unsubscribe(armed_sub);
-					return -1;
-				}
+			/* the system is now providing arming status feedback.
+			 * instead of timing out, we resort to abort bringing
+			 * up the terminal.
+			 */
+			if (armed_sub.get().armed) {
+				/* this is not an error, but we are done */
+				return -1;
 			}
 
 			px4_usleep(100000);
 			_uart_fd = ::open(uart_name, O_RDWR | O_NOCTTY);
 		}
-
-		orb_unsubscribe(armed_sub);
 	}
 
 	if (_uart_fd < 0) {
@@ -1997,7 +1968,7 @@ Mavlink::task_main(int argc, char *argv[])
 #endif
 
 //		case 'e':
-//			mavlink_link_termination_allowed = true;
+//			_mavlink_link_termination_allowed = true;
 //			break;
 
 		case 'm': {
@@ -2156,7 +2127,7 @@ Mavlink::task_main(int argc, char *argv[])
 
 	MavlinkOrbSubscription *mavlink_log_sub = add_orb_subscription(ORB_ID(mavlink_log));
 
-	struct vehicle_status_s status;
+	vehicle_status_s status{};
 	status_sub->update(&status_time, &status);
 
 	/* Activate sending the data by default (for the IRIDIUM mode it will be disabled after the first round of packages is sent)*/
@@ -2225,7 +2196,9 @@ Mavlink::task_main(int argc, char *argv[])
 
 		update_rate_mult();
 
-		if (param_sub->update(&param_time, nullptr)) {
+		parameter_update_s param_update;
+
+		if (param_sub->update(&param_time, &param_update)) {
 			mavlink_update_parameters();
 
 #if defined(CONFIG_NET)
@@ -2262,7 +2235,7 @@ Mavlink::task_main(int argc, char *argv[])
 			}
 		}
 
-		struct vehicle_command_s vehicle_cmd;
+		vehicle_command_s vehicle_cmd{};
 
 		if (cmd_sub->update_if_changed(&vehicle_cmd)) {
 			if ((vehicle_cmd.command == vehicle_command_s::VEHICLE_CMD_CONTROL_HIGH_LATENCY) &&
@@ -2307,7 +2280,7 @@ Mavlink::task_main(int argc, char *argv[])
 
 		/* send command ACK */
 		uint16_t current_command_ack = 0;
-		struct vehicle_command_ack_s command_ack;
+		vehicle_command_ack_s command_ack{};
 
 		if (ack_sub->update_if_changed(&command_ack)) {
 			if (!command_ack.from_external) {
@@ -2328,7 +2301,7 @@ Mavlink::task_main(int argc, char *argv[])
 			}
 		}
 
-		struct mavlink_log_s mavlink_log;
+		mavlink_log_s mavlink_log{};
 
 		if (mavlink_log_sub->update_if_changed(&mavlink_log)) {
 			_logbuffer.put(&mavlink_log);
