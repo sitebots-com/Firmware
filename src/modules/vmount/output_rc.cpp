@@ -76,7 +76,15 @@ int OutputRC::update(const ControlData *control_data)
 	// _angle_outputs are in radians, actuator_controls are in [-1, 1]
 	actuator_controls.control[0] = (_angle_outputs[0] + _config.roll_offset) * _config.roll_scale;
 	actuator_controls.control[1] = (_angle_outputs[1] + _config.pitch_offset) * _config.pitch_scale;
-	actuator_controls.control[2] = (_angle_outputs[2] + _config.yaw_offset) * _config.yaw_scale;
+	if(_config.yaw_ctrl == 0) {
+		actuator_controls.control[2] = (_angle_outputs[2] + _config.yaw_offset) * _config.yaw_scale;
+	} else {
+		actuator_controls.control[2] = _angle_speeds[2] / (_config.yaw_speed * M_DEG_TO_RAD_F);
+		if(actuator_controls.control[2] > 1.0)
+			actuator_controls.control[2] = 1.0;
+		else if(actuator_controls.control[2] < -1.0)
+			actuator_controls.control[2] = -1.0;
+	}
 	actuator_controls.control[3] = _retract_gimbal ? _config.gimbal_retracted_mode_value : _config.gimbal_normal_mode_value;
 
 	int instance;

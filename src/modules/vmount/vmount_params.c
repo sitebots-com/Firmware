@@ -228,3 +228,28 @@ PARAM_DEFINE_FLOAT(MNT_OFF_ROLL, 0.0f);
 * @group Mount
 */
 PARAM_DEFINE_FLOAT(MNT_OFF_YAW, 0.0f);
+
+/**
+* Yaw control mode
+*
+* Control the mount yaw by speed or by angle
+*
+* @value 0 angle
+* @value 1 speed
+* @min 0
+* @max 1
+* @group Mount
+*/
+PARAM_DEFINE_INT32(MNT_YAW_CTRL, 0);
+
+/**
+* Yaw control mode
+*
+* Maximal yaw speed in degrees/s if controlling yaw by speed
+*
+* @min 0.0
+* @max 360.0
+* @decimal 1
+* @group Mount
+*/
+PARAM_DEFINE_FLOAT(MNT_YAW_SPEED, 20.0);

@@ -99,6 +99,8 @@ struct Parameters {
 	float mnt_off_pitch;
 	float mnt_off_roll;
 	float mnt_off_yaw;
+	int32_t mnt_yaw_ctrl;
+	float mnt_yaw_speed;
 
 	bool operator!=(const Parameters &p)
 	{
@@ -119,7 +121,9 @@ struct Parameters {
 		       mnt_range_yaw != p.mnt_range_yaw ||
 		       mnt_off_pitch != p.mnt_off_pitch ||
 		       mnt_off_roll != p.mnt_off_roll ||
-		       mnt_off_yaw != p.mnt_off_yaw;
+		       mnt_off_yaw != p.mnt_off_yaw ||
+		       mnt_yaw_ctrl != p.mnt_yaw_ctrl ||
+		       mnt_yaw_speed != p.mnt_yaw_speed;
 #pragma GCC diagnostic pop
 
 	}
@@ -142,6 +146,8 @@ struct ParameterHandles {
 	param_t mnt_off_pitch;
 	param_t mnt_off_roll;
 	param_t mnt_off_yaw;
+	param_t mnt_yaw_ctrl;
+	param_t mnt_yaw_speed;
 };
 
 
@@ -237,6 +243,8 @@ static int vmount_thread_main(int argc, char *argv[])
 			output_config.yaw_offset = params.mnt_off_yaw * M_DEG_TO_RAD_F;
 			output_config.mavlink_sys_id = params.mnt_mav_sysid;
 			output_config.mavlink_comp_id = params.mnt_mav_compid;
+			output_config.yaw_ctrl = params.mnt_yaw_ctrl;
+			output_config.yaw_speed = params.mnt_yaw_speed;
 
 			bool alloc_failed = false;
 			thread_data.input_objs_len = 1;
@@ -534,6 +542,8 @@ void update_params(ParameterHandles &param_handles, Parameters &params, bool &go
 	param_get(param_handles.mnt_off_pitch, &params.mnt_off_pitch);
 	param_get(param_handles.mnt_off_roll, &params.mnt_off_roll);
 	param_get(param_handles.mnt_off_yaw, &params.mnt_off_yaw);
+	param_get(param_handles.mnt_yaw_ctrl, &params.mnt_yaw_ctrl);
+	param_get(param_handles.mnt_yaw_speed, &params.mnt_yaw_speed);
 
 	got_changes = prev_params != params;
 }
@@ -556,6 +566,8 @@ bool get_params(ParameterHandles &param_handles, Parameters &params)
 	param_handles.mnt_off_pitch = param_find("MNT_OFF_PITCH");
 	param_handles.mnt_off_roll = param_find("MNT_OFF_ROLL");
 	param_handles.mnt_off_yaw = param_find("MNT_OFF_YAW");
+	param_handles.mnt_yaw_ctrl = param_find("MNT_YAW_CTRL");
+	param_handles.mnt_yaw_speed = param_find("MNT_YAW_SPEED");
 
 	if (param_handles.mnt_mode_in == PARAM_INVALID ||
 	    param_handles.mnt_mode_out == PARAM_INVALID ||
@@ -572,7 +584,9 @@ bool get_params(ParameterHandles &param_handles, Parameters &params)
 	    param_handles.mnt_range_yaw == PARAM_INVALID ||
 	    param_handles.mnt_off_pitch == PARAM_INVALID ||
 	    param_handles.mnt_off_roll == PARAM_INVALID ||
-	    param_handles.mnt_off_yaw == PARAM_INVALID) {
+	    param_handles.mnt_off_yaw == PARAM_INVALID ||
+	    param_handles.mnt_yaw_ctrl == PARAM_INVALID ||
+	    param_handles.mnt_yaw_speed == PARAM_INVALID) {
 		return false;
 	}
 

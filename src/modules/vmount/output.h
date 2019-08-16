@@ -66,6 +66,9 @@ struct OutputConfig {
 
 	uint32_t mavlink_sys_id;	/**< Mavlink target system id for mavlink output */
 	uint32_t mavlink_comp_id;
+
+	uint32_t yaw_ctrl;
+	float yaw_speed;
 };
 
 
