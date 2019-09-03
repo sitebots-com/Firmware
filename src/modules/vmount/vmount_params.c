@@ -228,3 +228,13 @@ PARAM_DEFINE_FLOAT(MNT_OFF_ROLL, 0.0f);
 * @group Mount
 */
 PARAM_DEFINE_FLOAT(MNT_OFF_YAW, 0.0f);
+
+/**
+* Multiplier for the degrees in MAVLink output mode.
+*
+* @min 0.0
+* @max 1000.0
+* @decimal 1
+* @group Mount
+*/
+PARAM_DEFINE_FLOAT(MNT_MULT_MAV, 1.0f);
