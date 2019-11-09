@@ -96,5 +96,12 @@ private:
 	const float _velocity_max = 10.f;
 	const float _acceleration_max = 2.f;
 
-	orb_advert_t _orbit_status_pub = nullptr;
+	uint8_t _yaw_behavior = 0;
+	float _initial_heading = 0.f;
+
+	uORB::Publication<orbit_status_s> _orbit_status_pub{ORB_ID(orbit_status)};
+
+	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise /**< cruise speed for circle approach */
+	)
 };

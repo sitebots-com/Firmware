@@ -73,6 +73,13 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 
 	ret = ret && setVelocity(v * (clockwise ? 1.f : -1.f));
 
+	if (PX4_ISFINITE(command.param3)) {
+		//_yaw_behavior = command.param3;
+
+		// FIX For testing
+		_yaw_behavior = 1;
+	}
+
 	// TODO: apply x,y / z independently in geo library
 	// commanded center coordinates
 	// if(PX4_ISFINITE(command.param5) && PX4_ISFINITE(command.param6)) {
@@ -155,6 +162,8 @@ bool FlightTaskOrbit::activate()
 	_center = Vector2f(_position);
 	_center(0) -= _r;
 
+	_initial_heading = _yaw;
+
 	// need a valid position and velocity
 	ret = ret && PX4_ISFINITE(_position(0))
 	      && PX4_ISFINITE(_position(1))
@@ -178,6 +187,70 @@ bool FlightTaskOrbit::update()
 	setRadius(r);
 	setVelocity(v);
 
+	Vector2f center_to_position = Vector2f(_position) - _center;
+
+	if (_yaw_behavior == 0) {
+		// make vehicle front always point towards the center
+		_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
+
+	} else if (_yaw_behavior == 1) {
+		_yaw_setpoint = _initial_heading;
+
+	} else if (_yaw_behavior == 2) {
+
+	} else if (_yaw_behavior == 3) {
+		if (!_in_circle_approach) {
+			if (_v > 0) {
+				_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F / 2.f;
+
+			} else {
+				_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) - M_PI_F / 2.f;
+			}
+
+		} else {
+			_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
+		}
+
+	} else {
+		PX4_WARN("[Orbit] Invalid yaw behavior. Defaulting to poiting torwards the center.");
+		_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
+	}
+
+	if (_in_circle_approach) {
+		generate_circle_approach_setpoints();
+
+	} else {
+		generate_circle_setpoints(center_to_position);
+	}
+
+	// publish information to UI
+	sendTelemetry();
+
+	return true;
+}
+
+void FlightTaskOrbit::generate_circle_approach_setpoints()
+{
+	if (_circle_approach_line.isEndReached()) {
+		// calculate target point on circle and plan a line trajectory
+		Vector2f start_to_center = _center - Vector2f(_position);
+		Vector2f start_to_circle = (start_to_center.norm() - _r) * start_to_center.unit_or_zero();
+		Vector2f closest_circle_point = Vector2f(_position) + start_to_circle;
+		Vector3f target = Vector3f(closest_circle_point(0), closest_circle_point(1), _position(2));
+		_circle_approach_line.setLineFromTo(_position, target);
+		_circle_approach_line.setSpeed(_param_mpc_xy_cruise.get());
+	}
+
+	// follow the planned line and switch to orbiting once the circle is reached
+	_circle_approach_line.generateSetpoints(_position_setpoint, _velocity_setpoint);
+	_in_circle_approach = !_circle_approach_line.isEndReached();
+
+	// yaw stays constant
+	_yawspeed_setpoint = NAN;
+}
+
+void FlightTaskOrbit::generate_circle_setpoints(Vector2f center_to_position)
+{
 	// xy velocity to go around in a circle
 	Vector2f center_to_position = Vector2f(_position) - _center;
 	Vector2f velocity_xy(-center_to_position(1), center_to_position(0));
