@@ -99,26 +99,29 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 		}
 	}
 
+	// perpendicularly approach the orbit circle again when new parameters get commanded
+	_in_circle_approach = true;
+
 	return ret;
 }
 
 bool FlightTaskOrbit::sendTelemetry()
 {
-	orbit_status_s _orbit_status = {};
-	_orbit_status.timestamp = hrt_absolute_time();
-	_orbit_status.radius = math::signNoZero(_v) * _r;
-	_orbit_status.frame = 0; // MAV_FRAME::MAV_FRAME_GLOBAL
+	orbit_status_s orbit_status = {};
+	orbit_status.timestamp = hrt_absolute_time();
+	orbit_status.radius = math::signNoZero(_v) * _r;
+	orbit_status.frame = 0; // MAV_FRAME::MAV_FRAME_GLOBAL
 
-	if (globallocalconverter_toglobal(_center(0), _center(1), _position_setpoint(2),  &_orbit_status.x, &_orbit_status.y,
-					  &_orbit_status.z)) {
+	if (globallocalconverter_toglobal(_center(0), _center(1), _position_setpoint(2), &orbit_status.x, &orbit_status.y,
+					  &orbit_status.z)) {
 		return false; // don't send the message if the transformation failed
 	}
 
 	if (_orbit_status_pub == nullptr) {
-		_orbit_status_pub = orb_advertise(ORB_ID(orbit_status), &_orbit_status);
+		_orbit_status_pub = orb_advertise(ORB_ID(orbit_status), &orbit_status);
 
 	} else {
-		orb_publish(ORB_ID(orbit_status), _orbit_status_pub, &_orbit_status);
+		orb_publish(ORB_ID(orbit_status), _orbit_status_pub, &orbit_status);
 	}
 
 	return true;
@@ -244,6 +247,9 @@ void FlightTaskOrbit::generate_circle_approach_setpoints()
 	// follow the planned line and switch to orbiting once the circle is reached
 	_circle_approach_line.generateSetpoints(_position_setpoint, _velocity_setpoint);
 	_in_circle_approach = !_circle_approach_line.isEndReached();
+
+	// yaw stays constant
+	_yawspeed_setpoint = NAN;
 }
 
 void FlightTaskOrbit::generate_circle_setpoints(Vector2f center_to_position)
@@ -259,4 +265,7 @@ void FlightTaskOrbit::generate_circle_setpoints(Vector2f center_to_position)
 	_velocity_setpoint(0) = velocity_xy(0);
 	_velocity_setpoint(1) = velocity_xy(1);
 	_position_setpoint(0) = _position_setpoint(1) = NAN;
+
+	// yawspeed feed-forward because we know the necessary angular rate
+	_yawspeed_setpoint = _v / _r;
 }
