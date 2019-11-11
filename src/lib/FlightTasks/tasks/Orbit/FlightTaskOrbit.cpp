@@ -73,11 +73,9 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 
 	ret = ret && setVelocity(v * (clockwise ? 1.f : -1.f));
 
+	// commanded heading behavior
 	if (PX4_ISFINITE(command.param3)) {
-		//_yaw_behavior = command.param3;
-
-		// FIX For testing
-		_yaw_behavior = 1;
+		_yaw_behavior = command.param3;
 	}
 
 	// TODO: apply x,y / z independently in geo library
@@ -192,16 +190,22 @@ bool FlightTaskOrbit::update()
 
 	Vector2f center_to_position = Vector2f(_position) - _center;
 
-	if (_yaw_behavior == 0) {
+	switch (_yaw_behavior) {
+	case 0:
 		// make vehicle front always point towards the center
 		_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
+		break;
 
-	} else if (_yaw_behavior == 1) {
+	case 1:
+		// make vehicle keep the same heading as in the beginning of the flight task
 		_yaw_setpoint = _initial_heading;
+		break;
 
-	} else if (_yaw_behavior == 2) {
+	case 2:
+		// no yaw setpoint
+		break;
 
-	} else if (_yaw_behavior == 3) {
+	case 3:
 		if (!_in_circle_approach) {
 			if (_v > 0) {
 				_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F / 2.f;
@@ -212,9 +216,12 @@ bool FlightTaskOrbit::update()
 
 		}
 
-	} else {
+		break;
+
+	default:
 		PX4_WARN("[Orbit] Invalid yaw behavior. Defaulting to poiting torwards the center.");
 		_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
+		break;
 	}
 
 	if (_in_circle_approach) {
