@@ -210,8 +210,6 @@ bool FlightTaskOrbit::update()
 				_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) - M_PI_F / 2.f;
 			}
 
-		} else {
-			_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
 		}
 
 	} else {
@@ -242,14 +240,12 @@ void FlightTaskOrbit::generate_circle_approach_setpoints()
 		Vector3f target = Vector3f(closest_circle_point(0), closest_circle_point(1), _position(2));
 		_circle_approach_line.setLineFromTo(_position, target);
 		_circle_approach_line.setSpeed(_param_mpc_xy_cruise.get());
+		_yaw_setpoint = atan2f(start_to_circle(1), start_to_circle(0));
 	}
 
 	// follow the planned line and switch to orbiting once the circle is reached
 	_circle_approach_line.generateSetpoints(_position_setpoint, _velocity_setpoint);
 	_in_circle_approach = !_circle_approach_line.isEndReached();
-
-	// yaw stays constant
-	_yawspeed_setpoint = NAN;
 }
 
 void FlightTaskOrbit::generate_circle_setpoints(Vector2f center_to_position)
