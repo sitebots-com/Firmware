@@ -99,6 +99,11 @@ uint8 VEHICLE_ROI_LOCATION = 3                     # Point toward fixed location
 uint8 VEHICLE_ROI_TARGET = 4                       # Point toward target
 uint8 VEHICLE_ROI_ENUM_END = 5
 
+uint8 VEHICLE_CAMERA_ZOOM_TYPE_STEP = 0            # Zoom one step increment
+uint8 VEHICLE_CAMERA_ZOOM_TYPE_CONTINUOUS = 1      # Continuous zoom up/down until stopped
+uint8 VEHICLE_CAMERA_ZOOM_TYPE_RANGE = 2           # Zoom value as proportion of full camera range
+uint8 VEHICLE_CAMERA_ZOOM_TYPE_FOCAL_LENGTH = 3    # Zoom to a focal length
+
 uint8 ORB_QUEUE_LENGTH = 3
 
 float32 param1			# Parameter 1, as defined by MAVLink uint16 VEHICLE_CMD enum.
