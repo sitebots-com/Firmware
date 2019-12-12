@@ -35,5 +35,5 @@ px4_add_library(FlightTaskOrbit
 	FlightTaskOrbit.cpp
 )
 
-target_link_libraries(FlightTaskOrbit PUBLIC FlightTaskManualAltitudeSmooth)
+target_link_libraries(FlightTaskOrbit PUBLIC FlightTask FlightTaskAuto)
 target_include_directories(FlightTaskOrbit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

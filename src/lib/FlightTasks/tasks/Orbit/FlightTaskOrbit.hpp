@@ -41,11 +41,11 @@
 
 #pragma once
 
-#include "FlightTaskManualAltitudeSmooth.hpp"
+#include "FlightTask.hpp"
 #include <uORB/uORB.h>
 #include <StraightLine.hpp>
 
-class FlightTaskOrbit : public FlightTaskManualAltitudeSmooth
+class FlightTaskOrbit : public FlightTask
 {
 public:
 	FlightTaskOrbit();
@@ -89,6 +89,8 @@ protected:
 private:
 	void generate_circle_approach_setpoints(); /**< generates setpoints to smoothly reach the closest point on the circle when starting from far away */
 	void generate_circle_setpoints(matrix::Vector2f center_to_position); /**< generates xy setpoints to orbit the vehicle */
+	void generate_altitude_approach_setpoints();
+	void generate_altitude_lidar_setpoints();
 
 	float _r = 0.f; /**< radius with which to orbit the target */
 	float _v = 0.f; /**< clockwise tangential velocity for orbiting in m/s */
@@ -98,13 +100,16 @@ private:
 	StraightLine _circle_approach_line;
 
 	// TODO: create/use parameters for limits
-	const float _radius_min = 1.f;
+	const float _radius_min = .2f;
 	const float _radius_max = 100.f;
 	const float _velocity_max = 10.f;
 	const float _acceleration_max = 2.f;
 
 	uint8_t _yaw_behavior = 0;
 	float _initial_heading = 0.f;
+	float _commanded_alt = 33;
+	float _lidar_target = 10;
+	uint16_t _lidar_failures = 0;
 
 	orb_advert_t _orbit_status_pub = nullptr;
 

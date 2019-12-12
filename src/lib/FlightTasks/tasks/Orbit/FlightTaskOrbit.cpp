@@ -44,7 +44,6 @@ using namespace matrix;
 
 FlightTaskOrbit::FlightTaskOrbit() : _circle_approach_line(_position)
 {
-	_sticks_data_required = false;
 }
 
 FlightTaskOrbit::~FlightTaskOrbit()
@@ -84,14 +83,17 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 	// 	map_projection_global_project(command.param5, command.param6, &_center(0), &_center(1));
 	// }
 
-	// commanded altitude
-	// if(PX4_ISFINITE(command.param7)) {
-	// 	_position_setpoint(2) = gl_ref.alt - command.param7;
-	// }
+	if(PX4_ISFINITE(command.param4)) {
+		_lidar_target = command.param4;
+		if (_lidar_target < 5.0f) {
+			PX4_WARN("[Orbit] Flying too close to the ground");
+			ret = false;
+		}
+	}
 
 	if (PX4_ISFINITE(command.param5) && PX4_ISFINITE(command.param6) && PX4_ISFINITE(command.param7)) {
 		if (globallocalconverter_tolocal(command.param5, command.param6, command.param7, &_center(0), &_center(1),
-						 &_position_setpoint(2))) {
+						 &_commanded_alt)) {
 			// global to local conversion failed
 			ret = false;
 		}
@@ -99,6 +101,7 @@ bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 
 	// perpendicularly approach the orbit circle again when new parameters get commanded
 	_in_circle_approach = true;
+	// sendTelemetry();
 
 	return ret;
 }
@@ -108,12 +111,14 @@ bool FlightTaskOrbit::sendTelemetry()
 	orbit_status_s orbit_status = {};
 	orbit_status.timestamp = hrt_absolute_time();
 	orbit_status.radius = math::signNoZero(_v) * _r;
-	orbit_status.frame = 0; // MAV_FRAME::MAV_FRAME_GLOBAL
+	orbit_status.frame = _in_circle_approach ? 0 : 1; // MAV_FRAME::MAV_FRAME_GLOBAL
+	float z;
 
 	if (globallocalconverter_toglobal(_center(0), _center(1), _position_setpoint(2), &orbit_status.x, &orbit_status.y,
-					  &orbit_status.z)) {
+					  &z)) {
 		return false; // don't send the message if the transformation failed
 	}
+	orbit_status.z = _dist_to_bottom;
 
 	if (_orbit_status_pub == nullptr) {
 		_orbit_status_pub = orb_advertise(ORB_ID(orbit_status), &orbit_status);
@@ -157,11 +162,11 @@ bool FlightTaskOrbit::checkAcceleration(float r, float v, float a)
 
 bool FlightTaskOrbit::activate()
 {
-	bool ret = FlightTaskManualAltitudeSmooth::activate();
+	bool ret = FlightTask::activate();
 	_r = _radius_min;
 	_v =  1.f;
 	_center = Vector2f(_position);
-	_center(0) -= _r;
+	// _center(0) -= _r; TODO: was this necessary?
 
 	_initial_heading = _yaw;
 
@@ -178,16 +183,7 @@ bool FlightTaskOrbit::activate()
 
 bool FlightTaskOrbit::update()
 {
-	// update altitude
-	FlightTaskManualAltitudeSmooth::update();
-
-	// stick input adjusts parameters within a fixed time frame
-	const float r = _r - _sticks_expo(0) * _deltatime * (_radius_max / 8.f);
-	const float v = _v - _sticks_expo(1) * _deltatime * (_velocity_max / 4.f);
-
-	setRadius(r);
-	setVelocity(v);
-
+	FlightTask::updateInitialize();
 	Vector2f center_to_position = Vector2f(_position) - _center;
 
 	switch (_yaw_behavior) {
@@ -218,6 +214,15 @@ bool FlightTaskOrbit::update()
 
 		break;
 
+	case 4:
+		_dist_to_bottom =  _sub_vehicle_local_position->get().dist_bottom;
+		if (_in_circle_approach) {
+			generate_altitude_approach_setpoints();
+		} else {
+			generate_altitude_lidar_setpoints();
+		}
+		return true;
+
 	default:
 		PX4_WARN("[Orbit] Invalid yaw behavior. Defaulting to poiting torwards the center.");
 		_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
@@ -235,6 +240,41 @@ bool FlightTaskOrbit::update()
 	sendTelemetry();
 
 	return true;
+}
+
+void FlightTaskOrbit::generate_altitude_approach_setpoints()
+{
+	if (_circle_approach_line.isEndReached()) {
+		Vector3f target = Vector3f(_center(0), _center(1), _commanded_alt);
+		_circle_approach_line.setLineFromTo(_position, target);
+	}
+	_circle_approach_line.generateSetpoints(_position_setpoint, _velocity_setpoint);
+	setRadius(fabsf(_position(2) - _commanded_alt));
+	sendTelemetry();
+	_in_circle_approach = !_circle_approach_line.isEndReached();
+	if (!_in_circle_approach) {
+		_resetSetpoints();
+		generate_altitude_lidar_setpoints();
+	}
+}
+
+void FlightTaskOrbit::generate_altitude_lidar_setpoints()
+{
+	_position_setpoint(0) = _center(0);
+	_position_setpoint(1) = _center(1);
+	if(PX4_ISFINITE(_dist_to_bottom)) {
+		_position_setpoint(2) = _position(2) - (_lidar_target - _dist_to_bottom);
+		setRadius(fabsf(_dist_to_bottom - _lidar_target));
+		_lidar_failures = 0;
+	} else if (_lidar_failures < 10) {
+		_lidar_failures++;
+	} else if (_lidar_failures < 20) {
+		_lidar_failures++;
+		_position_setpoint(2) = _position(2);
+	} else {
+		setRadius(0);
+	}
+	sendTelemetry();
 }
 
 void FlightTaskOrbit::generate_circle_approach_setpoints()
