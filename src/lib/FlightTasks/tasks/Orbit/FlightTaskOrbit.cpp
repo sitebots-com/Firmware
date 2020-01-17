@@ -216,11 +216,11 @@ bool FlightTaskOrbit::update()
 
 	case 4:
 		_dist_to_bottom =  _sub_vehicle_local_position->get().dist_bottom;
-		if (_in_circle_approach) {
+		/* if (_in_circle_approach) {
 			generate_altitude_approach_setpoints();
-		} else {
-			generate_altitude_lidar_setpoints();
-		}
+		} else { */
+		generate_altitude_lidar_setpoints();
+		// }
 		return true;
 
 	default:
