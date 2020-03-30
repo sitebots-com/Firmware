@@ -1032,194 +1032,159 @@ public:
 	}
 };
 
-class MavlinkStreamScaledIMU : public MavlinkStream
+template <int N, typename Derived>
+class MavlinkStreamScaledIMUBase : public MavlinkStream
 {
 public:
 	const char *get_name() const override
 	{
-		return MavlinkStreamScaledIMU::get_name_static();
+		return Derived::get_name_static();
 	}
 
-	static const char *get_name_static()
+	uint16_t get_id() override
+	{
+		return Derived::get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new Derived(mavlink);
+	}
+
+private:
+	uORB::Subscription _raw_accel_sub{ORB_ID(sensor_accel_integrated), N};
+	uORB::Subscription _raw_gyro_sub{ORB_ID(sensor_gyro_integrated), N};
+	uORB::Subscription _raw_mag_sub{ORB_ID(sensor_mag), N};
+
+	// do not allow to copy this class
+	MavlinkStreamScaledIMUBase(MavlinkStreamScaledIMUBase &) = delete;
+	MavlinkStreamScaledIMUBase &operator = (const MavlinkStreamScaledIMUBase &) = delete;
+
+protected:
+	explicit MavlinkStreamScaledIMUBase(Mavlink *mavlink) : MavlinkStream(mavlink)
+	{}
+
+	bool send(const hrt_abstime t) override
+	{
+		if (_raw_accel_sub.updated() || _raw_gyro_sub.updated() || _raw_mag_sub.updated()) {
+
+			sensor_accel_integrated_s sensor_accel{};
+			_raw_accel_sub.copy(&sensor_accel);
+
+			sensor_gyro_integrated_s sensor_gyro{};
+			_raw_gyro_sub.copy(&sensor_gyro);
+
+			sensor_mag_s sensor_mag{};
+			_raw_mag_sub.copy(&sensor_mag);
+
+			typename Derived::mav_msg_type msg{};
+
+			msg.time_boot_ms = sensor_accel.timestamp / 1000;
+
+			// Accelerometer in mG
+			const float accel_dt_inv = 1.e6f / (float)sensor_accel.dt;
+			const Vector3f accel = Vector3f{sensor_accel.delta_velocity} * accel_dt_inv * 1000.0f / CONSTANTS_ONE_G;
+
+			// Gyroscope in mrad/s
+			const float gyro_dt_inv = 1.e6f / (float)sensor_gyro.dt;
+			const Vector3f gyro = Vector3f{sensor_gyro.delta_angle} * gyro_dt_inv * 1000.0f;
+
+			msg.xacc = (int16_t)accel(0);
+			msg.yacc = (int16_t)accel(1);
+			msg.zacc = (int16_t)accel(2);
+			msg.xgyro = gyro(0);
+			msg.ygyro = gyro(1);
+			msg.zgyro = gyro(2);
+			msg.xmag = sensor_mag.x * 1000.0f; // Gauss -> MilliGauss
+			msg.ymag = sensor_mag.y * 1000.0f; // Gauss -> MilliGauss
+			msg.zmag = sensor_mag.z * 1000.0f; // Gauss -> MilliGauss
+			msg.temperature = sensor_mag.temperature;
+
+			Derived::send(_mavlink->get_channel(), &msg);
+
+			return true;
+		}
+
+		return false;
+	}
+};
+
+template <int N> struct MavlinkStreamScaledIMU {};
+
+template <>
+class MavlinkStreamScaledIMU<0> : public MavlinkStreamScaledIMUBase<0, MavlinkStreamScaledIMU<0> >
+{
+public:
+	typedef MavlinkStreamScaledIMUBase<0, MavlinkStreamScaledIMU<0> > Base;
+	typedef mavlink_scaled_imu_t mav_msg_type;
+
+	explicit MavlinkStreamScaledIMU(Mavlink *mavlink) : Base(mavlink) {}
+
+	static void send(mavlink_channel_t channel, const MavlinkStreamScaledIMU<0>::mav_msg_type *msg)
+	{
+		mavlink_msg_scaled_imu_send_struct(channel, msg);
+	}
+
+	static constexpr const char *get_name_static()
 	{
 		return "SCALED_IMU";
 	}
 
-	static uint16_t get_id_static()
+	static constexpr uint16_t get_id_static()
 	{
 		return MAVLINK_MSG_ID_SCALED_IMU;
 	}
 
-	uint16_t get_id() override
-	{
-		return get_id_static();
-	}
-
-	static MavlinkStream *new_instance(Mavlink *mavlink)
-	{
-		return new MavlinkStreamScaledIMU(mavlink);
-	}
-
 	unsigned get_size() override
 	{
-		return _raw_accel_sub.advertised() ? (MAVLINK_MSG_ID_SCALED_IMU_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) : 0;
-	}
-
-private:
-	uORB::Subscription _raw_accel_sub{ORB_ID(sensor_accel_integrated), 0};
-	uORB::Subscription _raw_gyro_sub{ORB_ID(sensor_gyro_integrated), 0};
-	uORB::Subscription _raw_mag_sub{ORB_ID(sensor_mag), 0};
-
-	// do not allow top copy this class
-	MavlinkStreamScaledIMU(MavlinkStreamScaledIMU &) = delete;
-	MavlinkStreamScaledIMU &operator = (const MavlinkStreamScaledIMU &) = delete;
-
-protected:
-	explicit MavlinkStreamScaledIMU(Mavlink *mavlink) : MavlinkStream(mavlink)
-	{}
-
-	bool send(const hrt_abstime t) override
-	{
-		if (_raw_accel_sub.updated() || _raw_gyro_sub.updated() || _raw_mag_sub.updated()) {
-
-			sensor_accel_integrated_s sensor_accel{};
-			_raw_accel_sub.copy(&sensor_accel);
-
-			sensor_gyro_integrated_s sensor_gyro{};
-			_raw_gyro_sub.copy(&sensor_gyro);
-
-			sensor_mag_s sensor_mag{};
-			_raw_mag_sub.copy(&sensor_mag);
-
-			mavlink_scaled_imu_t msg{};
-
-			msg.time_boot_ms = sensor_accel.timestamp / 1000;
-
-			// Accelerometer in mG
-			const float accel_dt_inv = 1.e6f / (float)sensor_accel.dt;
-			const Vector3f accel = Vector3f{sensor_accel.delta_velocity} * accel_dt_inv * 1000.0f / CONSTANTS_ONE_G;
-
-			// Gyroscope in mrad/s
-			const float gyro_dt_inv = 1.e6f / (float)sensor_gyro.dt;
-			const Vector3f gyro = Vector3f{sensor_gyro.delta_angle} * gyro_dt_inv * 1000.0f;
-
-			msg.xacc = (int16_t)accel(0);
-			msg.yacc = (int16_t)accel(1);
-			msg.zacc = (int16_t)accel(2);
-			msg.xgyro = gyro(0);
-			msg.ygyro = gyro(1);
-			msg.zgyro = gyro(2);
-			msg.xmag = sensor_mag.x * 1000.0f; // Gauss -> MilliGauss
-			msg.ymag = sensor_mag.y * 1000.0f; // Gauss -> MilliGauss
-			msg.zmag = sensor_mag.z * 1000.0f; // Gauss -> MilliGauss
-
-			mavlink_msg_scaled_imu_send_struct(_mavlink->get_channel(), &msg);
-
-			return true;
-		}
-
-		return false;
+		return MAVLINK_MSG_ID_SCALED_IMU_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
 	}
 };
 
-class MavlinkStreamScaledIMU2 : public MavlinkStream
+template <>
+class MavlinkStreamScaledIMU<1> : public MavlinkStreamScaledIMUBase<1, MavlinkStreamScaledIMU<1> >
 {
 public:
-	const char *get_name() const override
+	typedef MavlinkStreamScaledIMUBase<1, MavlinkStreamScaledIMU<1> > Base;
+	typedef mavlink_scaled_imu2_t mav_msg_type;
+
+	explicit MavlinkStreamScaledIMU(Mavlink *mavlink) : Base(mavlink) {}
+
+	static void send(mavlink_channel_t channel, const MavlinkStreamScaledIMU<1>::mav_msg_type *msg)
 	{
-		return MavlinkStreamScaledIMU2::get_name_static();
+		mavlink_msg_scaled_imu2_send_struct(channel, msg);
 	}
 
-	static constexpr const char *get_name_static()
+	static const char *get_name_static()
 	{
 		return "SCALED_IMU2";
 	}
 
-	static constexpr uint16_t get_id_static()
+	static uint16_t get_id_static()
 	{
 		return MAVLINK_MSG_ID_SCALED_IMU2;
 	}
 
-	uint16_t get_id() override
-	{
-		return get_id_static();
-	}
-
-	static MavlinkStream *new_instance(Mavlink *mavlink)
-	{
-		return new MavlinkStreamScaledIMU2(mavlink);
-	}
-
 	unsigned get_size() override
 	{
-		return _raw_accel_sub.advertised() ? (MAVLINK_MSG_ID_SCALED_IMU2_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) : 0;
-	}
-
-private:
-	uORB::Subscription _raw_accel_sub{ORB_ID(sensor_accel_integrated), 1};
-	uORB::Subscription _raw_gyro_sub{ORB_ID(sensor_gyro_integrated), 1};
-	uORB::Subscription _raw_mag_sub{ORB_ID(sensor_mag), 1};
-
-	// do not allow top copy this class
-	MavlinkStreamScaledIMU2(MavlinkStreamScaledIMU2 &) = delete;
-	MavlinkStreamScaledIMU2 &operator = (const MavlinkStreamScaledIMU2 &) = delete;
-
-protected:
-	explicit MavlinkStreamScaledIMU2(Mavlink *mavlink) : MavlinkStream(mavlink)
-	{}
-
-	bool send(const hrt_abstime t) override
-	{
-		if (_raw_accel_sub.updated() || _raw_gyro_sub.updated() || _raw_mag_sub.updated()) {
-
-			sensor_accel_integrated_s sensor_accel{};
-			_raw_accel_sub.copy(&sensor_accel);
-
-			sensor_gyro_integrated_s sensor_gyro{};
-			_raw_gyro_sub.copy(&sensor_gyro);
-
-			sensor_mag_s sensor_mag{};
-			_raw_mag_sub.copy(&sensor_mag);
-
-			mavlink_scaled_imu2_t msg{};
-
-			msg.time_boot_ms = sensor_accel.timestamp / 1000;
-
-			// Accelerometer in mG
-			const float accel_dt_inv = 1.e6f / (float)sensor_accel.dt;
-			const Vector3f accel = Vector3f{sensor_accel.delta_velocity} * accel_dt_inv * 1000.0f / CONSTANTS_ONE_G;
-
-			// Gyroscope in mrad/s
-			const float gyro_dt_inv = 1.e6f / (float)sensor_gyro.dt;
-			const Vector3f gyro = Vector3f{sensor_gyro.delta_angle} * gyro_dt_inv * 1000.0f;
-
-			msg.xacc = (int16_t)accel(0);
-			msg.yacc = (int16_t)accel(1);
-			msg.zacc = (int16_t)accel(2);
-			msg.xgyro = gyro(0);
-			msg.ygyro = gyro(1);
-			msg.zgyro = gyro(2);
-			msg.xmag = sensor_mag.x * 1000.0f; // Gauss -> MilliGauss
-			msg.ymag = sensor_mag.y * 1000.0f; // Gauss -> MilliGauss
-			msg.zmag = sensor_mag.z * 1000.0f; // Gauss -> MilliGauss
-
-			mavlink_msg_scaled_imu2_send_struct(_mavlink->get_channel(), &msg);
-
-			return true;
-		}
-
-		return false;
+		return MAVLINK_MSG_ID_SCALED_IMU2_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
 	}
 };
 
-class MavlinkStreamScaledIMU3 : public MavlinkStream
+template <>
+class MavlinkStreamScaledIMU<2> : public MavlinkStreamScaledIMUBase<2, MavlinkStreamScaledIMU<2> >
 {
 public:
-	const char *get_name() const override
+	typedef MavlinkStreamScaledIMUBase<2, MavlinkStreamScaledIMU<2> > Base;
+	typedef mavlink_scaled_imu3_t mav_msg_type;
+
+	explicit MavlinkStreamScaledIMU(Mavlink *mavlink) : Base(mavlink) {}
+
+	static void send(mavlink_channel_t channel, const MavlinkStreamScaledIMU<2>::mav_msg_type *msg)
 	{
-		return MavlinkStreamScaledIMU3::get_name_static();
+		mavlink_msg_scaled_imu3_send_struct(channel, msg);
 	}
-	static constexpr const char *get_name_static()
+	static const char *get_name_static()
 	{
 		return "SCALED_IMU3";
 	}
@@ -1229,78 +1194,11 @@ public:
 		return MAVLINK_MSG_ID_SCALED_IMU3;
 	}
 
-	uint16_t get_id() override
-	{
-		return get_id_static();
-	}
-
-	static MavlinkStream *new_instance(Mavlink *mavlink)
-	{
-		return new MavlinkStreamScaledIMU3(mavlink);
-	}
-
 	unsigned get_size() override
 	{
-		return _raw_accel_sub.advertised() ? (MAVLINK_MSG_ID_SCALED_IMU3_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) : 0;
-	}
-
-private:
-	uORB::Subscription _raw_accel_sub{ORB_ID(sensor_accel_integrated), 2};
-	uORB::Subscription _raw_gyro_sub{ORB_ID(sensor_gyro_integrated), 2};
-	uORB::Subscription _raw_mag_sub{ORB_ID(sensor_mag), 2};
-
-	// do not allow top copy this class
-	MavlinkStreamScaledIMU3(MavlinkStreamScaledIMU3 &) = delete;
-	MavlinkStreamScaledIMU3 &operator = (const MavlinkStreamScaledIMU3 &) = delete;
-
-protected:
-	explicit MavlinkStreamScaledIMU3(Mavlink *mavlink) : MavlinkStream(mavlink)
-	{}
-
-	bool send(const hrt_abstime t) override
-	{
-		if (_raw_accel_sub.updated() || _raw_gyro_sub.updated() || _raw_mag_sub.updated()) {
-
-			sensor_accel_integrated_s sensor_accel{};
-			_raw_accel_sub.copy(&sensor_accel);
-
-			sensor_gyro_integrated_s sensor_gyro{};
-			_raw_gyro_sub.copy(&sensor_gyro);
-
-			sensor_mag_s sensor_mag{};
-			_raw_mag_sub.copy(&sensor_mag);
-
-			mavlink_scaled_imu3_t msg{};
-
-			msg.time_boot_ms = sensor_accel.timestamp / 1000;
-
-			// Accelerometer in mG
-			const float accel_dt_inv = 1.e6f / (float)sensor_accel.dt;
-			const Vector3f accel = Vector3f{sensor_accel.delta_velocity} * accel_dt_inv * 1000.0f / CONSTANTS_ONE_G;
-
-			// Gyroscope in mrad/s
-			const float gyro_dt_inv = 1.e6f / (float)sensor_gyro.dt;
-			const Vector3f gyro = Vector3f{sensor_gyro.delta_angle} * gyro_dt_inv * 1000.0f;
-
-			msg.xacc = (int16_t)accel(0);
-			msg.yacc = (int16_t)accel(1);
-			msg.zacc = (int16_t)accel(2);
-			msg.xgyro = gyro(0);
-			msg.ygyro = gyro(1);
-			msg.zgyro = gyro(2);
-			msg.xmag = sensor_mag.x * 1000.0f; // Gauss -> MilliGauss
-			msg.ymag = sensor_mag.y * 1000.0f; // Gauss -> MilliGauss
-			msg.zmag = sensor_mag.z * 1000.0f; // Gauss -> MilliGauss
-
-			mavlink_msg_scaled_imu3_send_struct(_mavlink->get_channel(), &msg);
-
-			return true;
-		}
-
-		return false;
+		return MAVLINK_MSG_ID_SCALED_IMU3_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
 	}
 };
-
 
 class MavlinkStreamAttitude : public MavlinkStream
 {
@@ -5195,9 +5093,9 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamSysStatus>(),
 	create_stream_list_item<MavlinkStreamBatteryStatus>(),
 	create_stream_list_item<MavlinkStreamHighresIMU>(),
-	create_stream_list_item<MavlinkStreamScaledIMU>(),
-	create_stream_list_item<MavlinkStreamScaledIMU2>(),
-	create_stream_list_item<MavlinkStreamScaledIMU3>(),
+	create_stream_list_item<MavlinkStreamScaledIMU<0> >(),
+	create_stream_list_item<MavlinkStreamScaledIMU<1> >(),
+	create_stream_list_item<MavlinkStreamScaledIMU<2> >(),
 	create_stream_list_item<MavlinkStreamScaledPressure<0> >(),
 	// create_stream_list_item<MavlinkStreamScaledPressure<1> >(),
 	// create_stream_list_item<MavlinkStreamScaledPressure<2> >(),
