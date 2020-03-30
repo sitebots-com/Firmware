@@ -1032,7 +1032,7 @@ public:
 	}
 };
 
-const char* MSG_NAMES_SCALED_IMU[] = {
+const char *MSG_NAMES_SCALED_IMU[] = {
 	"SCALED_IMU",
 	"SCALED_IMU2",
 	"SCALED_IMU3"
@@ -1073,8 +1073,9 @@ protected:
 
 		return false;
 	}
-	
-	virtual void send_mavlink_message(uint32_t time_boot_ms, const Vector3f& sensor_accel, const Vector3f& gyro, sensor_mag_s& sensor_mag) = 0;
+
+	virtual void send_mavlink_message(uint32_t time_boot_ms, const Vector3f &sensor_accel, const Vector3f &gyro,
+					  sensor_mag_s &sensor_mag) = 0;
 
 private:
 	uORB::Subscription _raw_accel_sub;
@@ -1095,7 +1096,7 @@ public:
 		return get_name_static();
 	}
 
-	static const char* get_name_static()
+	static const char *get_name_static()
 	{
 		return MSG_NAMES_SCALED_IMU[N];
 	}
@@ -1121,15 +1122,17 @@ public:
 	}
 
 private:
-	typedef void (*SendMavlinkHandler)(mavlink_channel_t,  const MavlinkMsg*);
+	typedef void (*SendMavlinkHandler)(mavlink_channel_t,  const MavlinkMsg *);
 	SendMavlinkHandler _send_mavlink;
 
 protected:
-	explicit MavlinkStreamScaledIMUTemplate(Mavlink *mavlink, SendMavlinkHandler handler) : MavlinkStreamScaledIMUBase(mavlink, N),
+	explicit MavlinkStreamScaledIMUTemplate(Mavlink *mavlink,
+						SendMavlinkHandler handler) : MavlinkStreamScaledIMUBase(mavlink, N),
 		_send_mavlink(handler)
 	{}
 
-	void send_mavlink_message(uint32_t time_boot_ms, const Vector3f& accel, const Vector3f& gyro, sensor_mag_s& sensor_mag)
+	virtual void send_mavlink_message(uint32_t time_boot_ms, const Vector3f &accel, const Vector3f &gyro,
+					  sensor_mag_s &sensor_mag) override
 	{
 		MavlinkMsg msg{};
 		msg.time_boot_ms = time_boot_ms;
@@ -1151,28 +1154,34 @@ protected:
 template <int N> struct MavlinkStreamScaledIMU {};
 
 template <>
-class MavlinkStreamScaledIMU<0> : public MavlinkStreamScaledIMUTemplate<0, MavlinkStreamScaledIMU<0>, MAVLINK_MSG_ID_SCALED_IMU, MAVLINK_MSG_ID_SCALED_IMU_LEN, mavlink_scaled_imu_t>
+class MavlinkStreamScaledIMU<0> : public
+	MavlinkStreamScaledIMUTemplate<0, MavlinkStreamScaledIMU<0>, MAVLINK_MSG_ID_SCALED_IMU, MAVLINK_MSG_ID_SCALED_IMU_LEN, mavlink_scaled_imu_t>
 {
 public:
-	typedef MavlinkStreamScaledIMUTemplate<0, MavlinkStreamScaledIMU<0>, MAVLINK_MSG_ID_SCALED_IMU, MAVLINK_MSG_ID_SCALED_IMU_LEN, mavlink_scaled_imu_t> Base;
+	typedef MavlinkStreamScaledIMUTemplate<0, MavlinkStreamScaledIMU<0>, MAVLINK_MSG_ID_SCALED_IMU, MAVLINK_MSG_ID_SCALED_IMU_LEN, mavlink_scaled_imu_t>
+	Base;
 
 	explicit MavlinkStreamScaledIMU(Mavlink *mavlink) : Base(mavlink, mavlink_msg_scaled_imu_send_struct) {}
 };
 
 template <>
-class MavlinkStreamScaledIMU<1> : public MavlinkStreamScaledIMUTemplate<1, MavlinkStreamScaledIMU<1>, MAVLINK_MSG_ID_SCALED_IMU2, MAVLINK_MSG_ID_SCALED_IMU2_LEN, mavlink_scaled_imu2_t>
+class MavlinkStreamScaledIMU<1> : public
+	MavlinkStreamScaledIMUTemplate<1, MavlinkStreamScaledIMU<1>, MAVLINK_MSG_ID_SCALED_IMU2, MAVLINK_MSG_ID_SCALED_IMU2_LEN, mavlink_scaled_imu2_t>
 {
 public:
-	typedef MavlinkStreamScaledIMUTemplate<1, MavlinkStreamScaledIMU<1>, MAVLINK_MSG_ID_SCALED_IMU2, MAVLINK_MSG_ID_SCALED_IMU2_LEN, mavlink_scaled_imu2_t> Base;
+	typedef MavlinkStreamScaledIMUTemplate<1, MavlinkStreamScaledIMU<1>, MAVLINK_MSG_ID_SCALED_IMU2, MAVLINK_MSG_ID_SCALED_IMU2_LEN, mavlink_scaled_imu2_t>
+	Base;
 
 	explicit MavlinkStreamScaledIMU(Mavlink *mavlink) : Base(mavlink, mavlink_msg_scaled_imu2_send_struct) {}
 };
 
 template <>
-class MavlinkStreamScaledIMU<2> : public MavlinkStreamScaledIMUTemplate<2, MavlinkStreamScaledIMU<2>, MAVLINK_MSG_ID_SCALED_IMU3, MAVLINK_MSG_ID_SCALED_IMU3_LEN, mavlink_scaled_imu3_t>
+class MavlinkStreamScaledIMU<2> : public
+	MavlinkStreamScaledIMUTemplate<2, MavlinkStreamScaledIMU<2>, MAVLINK_MSG_ID_SCALED_IMU3, MAVLINK_MSG_ID_SCALED_IMU3_LEN, mavlink_scaled_imu3_t>
 {
 public:
-	typedef MavlinkStreamScaledIMUTemplate<2, MavlinkStreamScaledIMU<2>, MAVLINK_MSG_ID_SCALED_IMU3, MAVLINK_MSG_ID_SCALED_IMU3_LEN, mavlink_scaled_imu3_t> Base;
+	typedef MavlinkStreamScaledIMUTemplate<2, MavlinkStreamScaledIMU<2>, MAVLINK_MSG_ID_SCALED_IMU3, MAVLINK_MSG_ID_SCALED_IMU3_LEN, mavlink_scaled_imu3_t>
+	Base;
 
 	explicit MavlinkStreamScaledIMU(Mavlink *mavlink) : Base(mavlink, mavlink_msg_scaled_imu3_send_struct) {}
 };
