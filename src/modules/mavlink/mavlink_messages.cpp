@@ -245,7 +245,7 @@ void get_mavlink_navigation_mode(const struct vehicle_status_s *const status, ui
 }
 
 void get_mavlink_mode_state(const struct vehicle_status_s *const status, uint8_t *mavlink_state,
-				   uint8_t *mavlink_base_mode, uint32_t *mavlink_custom_mode)
+			    uint8_t *mavlink_base_mode, uint32_t *mavlink_custom_mode)
 {
 	*mavlink_state = 0;
 	*mavlink_base_mode = 0;
