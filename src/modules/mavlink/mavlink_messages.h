@@ -66,10 +66,15 @@ static StreamListItem create_stream_list_item()
 	return StreamListItem(&T::new_instance, T::get_name_static(), T::get_id_static());
 }
 
-const char *get_stream_name(const uint16_t msg_id);
-MavlinkStream *create_mavlink_stream(const char *stream_name, Mavlink *mavlink);
+uint16_t cm_uint16_from_m_float(float m);
 
 void get_mavlink_navigation_mode(const struct vehicle_status_s *const status, uint8_t *mavlink_base_mode,
 				 union px4_custom_mode *custom_mode);
+
+void get_mavlink_mode_state(const struct vehicle_status_s *const status, uint8_t *mavlink_state,
+				   uint8_t *mavlink_base_mode, uint32_t *mavlink_custom_mode);
+
+const char *get_stream_name(const uint16_t msg_id);
+MavlinkStream *create_mavlink_stream(const char *stream_name, Mavlink *mavlink);
 
 #endif /* MAVLINK_MESSAGES_H_ */

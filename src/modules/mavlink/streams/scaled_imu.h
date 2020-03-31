@@ -1,7 +1,7 @@
-#ifndef MAVLINK_STREAMS_SCALED_IMU_H
-#define MAVLINK_STREAMS_SCALED_IMU_H
+#ifndef MAVLINK_STREAM_SCALED_IMU_H
+#define MAVLINK_STREAM_SCALED_IMU_H
 
-#include "../mavlink_stream.h"
+#include "../mavlink_messages.h"
 
 #include <lib/ecl/geo/geo.h>
 #include <lib/matrix/matrix/math.hpp>
@@ -167,4 +167,4 @@ public:
 };
 
 
-#endif /* MAVLINK_STREAMS_SCALED_IMU_H */
+#endif /* MAVLINK_STREAM_SCALED_IMU_H */
